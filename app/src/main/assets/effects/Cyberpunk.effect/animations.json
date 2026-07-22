@@ -1,0 +1,12 @@
+[
+    {
+        "parameter": "shake",
+        "keyframes": [
+            {"timeSeconds": 0.0, "value": {"x": 0.0, "y": 0.0}, "interpolation": "hold"},
+            {"timeSeconds": 0.05, "value": {"x": 0.02, "y": -0.015}, "interpolation": "hold"},
+            {"timeSeconds": 0.1, "value": {"x": 0.0, "y": 0.0}, "interpolation": "hold"},
+            {"timeSeconds": 0.15, "value": {"x": -0.015, "y": 0.02}, "interpolation": "hold"},
+            {"timeSeconds": 0.2, "value": {"x": 0.0, "y": 0.0}, "interpolation": "hold"}
+        ]
+    }
+]

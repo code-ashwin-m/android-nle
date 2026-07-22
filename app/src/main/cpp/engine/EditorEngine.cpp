@@ -15,7 +15,7 @@ EditorEngine::~EditorEngine() = default;
 void EditorEngine::CreateProject(const std::string& name, ProjectSettings settings) {
     project_ = std::make_unique<Project>(ProjectId::Generate(), name, settings);
     commandStack_.Clear();
-    playback_ = std::make_unique<PlaybackEngine>(project_.get());
+    playback_ = std::make_unique<PlaybackEngine>(project_.get(), &effectRuntime_);
 }
 
 bool EditorEngine::OpenProject(const std::string& /*path*/) {
@@ -47,7 +47,9 @@ TrackId EditorEngine::AddTrack(TrackType type) {
     // is rarely the operation a user wants to reverse in isolation -- it's
     // almost always immediately followed by adding a clip to it, which is
     // undoable). Revisit if user testing shows this expectation is wrong.
-    return project_->GetTimeline().AddTrack(type)->Id();
+    TrackId id = project_->GetTimeline().AddTrack(type)->Id();
+    if (playback_) playback_->InvalidateGraph();
+    return id;
 }
 
 ClipId EditorEngine::AddClip(TrackId track, MediaSourceId source, TimeUs timelineStart, TimeUs sourceIn, TimeUs sourceOut) {
@@ -55,6 +57,7 @@ ClipId EditorEngine::AddClip(TrackId track, MediaSourceId source, TimeUs timelin
     auto command = std::make_unique<AddClipCommand>(track, source, timelineStart, sourceIn, sourceOut);
     AddClipCommand* raw = command.get();
     commandStack_.Execute(std::move(command), *project_);
+    if (playback_) playback_->InvalidateGraph();
     // AddClipCommand assigns its ClipId internally on first Do(); expose it
     // back to the caller (JNI -> Kotlin) so the UI can select the new clip.
     return raw->ResultClipId();
@@ -63,27 +66,36 @@ ClipId EditorEngine::AddClip(TrackId track, MediaSourceId source, TimeUs timelin
 void EditorEngine::DeleteClip(TrackId track, ClipId clip, bool ripple) {
     if (!project_) return;
     commandStack_.Execute(std::make_unique<DeleteClipCommand>(track, clip, ripple), *project_);
+    if (playback_) playback_->InvalidateGraph();
 }
 
 void EditorEngine::SplitClip(TrackId track, ClipId clip, TimeUs atTime) {
     if (!project_) return;
     commandStack_.Execute(std::make_unique<SplitClipCommand>(track, clip, atTime), *project_);
+    if (playback_) playback_->InvalidateGraph();
 }
 
 void EditorEngine::TrimClipHead(TrackId track, ClipId clip, TimeUs newSourceIn) {
     if (!project_) return;
     commandStack_.Execute(std::make_unique<TrimClipCommand>(track, clip, TrimClipCommand::Edge::Head, newSourceIn), *project_);
+    if (playback_) playback_->InvalidateGraph();
 }
 
 void EditorEngine::TrimClipTail(TrackId track, ClipId clip, TimeUs newSourceOut) {
     if (!project_) return;
     commandStack_.Execute(std::make_unique<TrimClipCommand>(track, clip, TrimClipCommand::Edge::Tail, newSourceOut), *project_);
+    if (playback_) playback_->InvalidateGraph();
 }
 
 void EditorEngine::SetBrightness(TrackId track, ClipId clip, EffectId effect, double value) {
     if (!project_ || !playback_) return;
     TimeUs currentTime = playback_->CurrentTime();
     commandStack_.Execute(std::make_unique<SetBrightnessCommand>(track, clip, effect, currentTime, value), *project_);
+    // Deliberately NOT calling InvalidateGraph(): this only adds/moves a
+    // keyframe on a property BrightnessNode already re-reads every frame
+    // via Property::ValueAt(context.time) -- no node or edge changes.
+    // Rebuilding (and recompiling every shader in the graph) on every
+    // slider drag would be a real performance regression for zero benefit.
 }
 
 EffectId EditorEngine::AddEffect(TrackId track, ClipId clip, EffectType type, double defaultValue) {
@@ -91,15 +103,38 @@ EffectId EditorEngine::AddEffect(TrackId track, ClipId clip, EffectType type, do
     auto command = std::make_unique<AddEffectCommand>(track, clip, type, defaultValue);
     AddEffectCommand* raw = command.get();
     commandStack_.Execute(std::move(command), *project_);
+    if (playback_) playback_->InvalidateGraph();
+    return raw->ResultEffectId();
+}
+
+bool EditorEngine::LoadEffectPackage(const std::string& packageDir, std::string* error) {
+    return effectRuntime_.LoadPackage(packageDir, error) != nullptr;
+}
+
+EffectId EditorEngine::AddPackagedEffect(TrackId track, ClipId clip, const std::string& packageId) {
+    if (!project_) return EffectId{};
+    auto command = std::make_unique<AddPackagedEffectCommand>(track, clip, packageId, &effectRuntime_);
+    AddPackagedEffectCommand* raw = command.get();
+    commandStack_.Execute(std::move(command), *project_);
+    if (playback_) playback_->InvalidateGraph();  // new node(s)/edges -- a real structural change, unlike SetBrightness above
     return raw->ResultEffectId();
 }
 
 void EditorEngine::Undo() {
-    if (project_) commandStack_.Undo(*project_);
+    if (!project_) return;
+    commandStack_.Undo(*project_);
+    // CommandStack::Undo can reverse any command, including structural ones
+    // (AddClip, AddEffect, AddPackagedEffect, ...) -- Command has no
+    // "IsStructural()" flag to check, so this invalidates unconditionally.
+    // The cost of an occasional unnecessary rebuild (undoing a brightness
+    // tweak) is far cheaper than a stale graph after undoing a clip add.
+    if (playback_) playback_->InvalidateGraph();
 }
 
 void EditorEngine::Redo() {
-    if (project_) commandStack_.Redo(*project_);
+    if (!project_) return;
+    commandStack_.Redo(*project_);
+    if (playback_) playback_->InvalidateGraph();  // see Undo()'s comment
 }
 
 bool EditorEngine::StartExport(const EncoderConfig& /*config*/) {

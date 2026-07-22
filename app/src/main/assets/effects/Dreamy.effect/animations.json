@@ -1,0 +1,10 @@
+[
+    {
+        "parameter": "glowRadius",
+        "keyframes": [
+            {"timeSeconds": 0.0, "value": 2.0, "interpolation": "easeInOut"},
+            {"timeSeconds": 2.0, "value": 6.0, "interpolation": "easeInOut"},
+            {"timeSeconds": 4.0, "value": 2.0, "interpolation": "easeInOut"}
+        ]
+    }
+]

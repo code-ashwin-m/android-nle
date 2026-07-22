@@ -13,6 +13,7 @@
 
 #include "command/Command.h"
 #include "core/Project.h"
+#include "effects/EffectRuntime.h"
 
 namespace nle {
 
@@ -220,6 +221,60 @@ private:
     ClipId clipId_;
     EffectType type_;
     double defaultValue_;
+    EffectId effectId_;
+};
+
+// Adds a packaged (data-driven) effect instance to a clip -- see
+// effects/EffectRuntime.h. Takes an EffectRuntime* (not owned) purely to
+// call PopulateParameters eagerly on Do(), so the clip's PropertyBag has
+// real entries the instant this command executes -- e.g. for a Properties
+// Panel to bind to -- rather than only becoming populated the first time a
+// frame actually renders through PackagedEffectSlotNode. Undo/Redo need no
+// special handling for that: RemoveEffect drops the whole Effect object
+// (PropertyBag included), and a Redo calls PopulateParameters again, which
+// is guarded to be a no-op if somehow already populated but otherwise just
+// repeats the same population it did the first time.
+class AddPackagedEffectCommand : public Command {
+public:
+    AddPackagedEffectCommand(TrackId trackId, ClipId clipId, std::string packageId, EffectRuntime* runtime)
+        : trackId_(trackId), clipId_(clipId), packageId_(std::move(packageId)), runtime_(runtime) {}
+
+    void Do(Project& project) override {
+        Clip* clip = FindClip(project);
+        if (!clip) return;
+        Effect& effect = clip->AddEffect(EffectType::Packaged);
+        effectId_ = effect.Id();
+        effect.SetPackageId(packageId_);
+        if (const EffectGraphDef* def = runtime_->FindLoaded(packageId_)) {
+            runtime_->PopulateParameters(*def, effect.Parameters());
+        }
+        // If the package isn't loaded yet, the effect still gets created
+        // with an empty PropertyBag -- PackagedEffectSlotNode::Instantiate
+        // will populate it the moment the package does load and a frame
+        // needs it. A clip referencing a not-yet-loaded package is not an
+        // error case (see EditorEngine::LoadEffectPackage's ordering note).
+    }
+
+    void Undo(Project& project) override {
+        Clip* clip = FindClip(project);
+        if (!clip) return;
+        clip->RemoveEffect(effectId_);
+    }
+
+    std::string Description() const override { return "Add Packaged Effect"; }
+
+    EffectId ResultEffectId() const { return effectId_; }
+
+private:
+    Clip* FindClip(Project& project) {
+        Track* track = project.GetTimeline().FindTrack(trackId_);
+        return track ? track->FindClip(clipId_) : nullptr;
+    }
+
+    TrackId trackId_;
+    ClipId clipId_;
+    std::string packageId_;
+    EffectRuntime* runtime_;
     EffectId effectId_;
 };
 

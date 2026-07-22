@@ -31,6 +31,7 @@
 
 #include "command/CommandStack.h"
 #include "core/Project.h"
+#include "effects/EffectRuntime.h"
 #include "encode/Encoder.h"
 #include "playback/PlaybackEngine.h"
 
@@ -79,6 +80,20 @@ public:
     void SetBrightness(TrackId track, ClipId clip, EffectId effect, double value);
     EffectId AddEffect(TrackId track, ClipId clip, EffectType type, double defaultValue);
 
+    // Packaged effects (Dreamy, Cyberpunk, ...; see effects/EffectRuntime.h
+    // and docs/ARCHITECTURE.md's "Effect Package Format"). LoadEffectPackage
+    // parses and caches a package's definition -- typically called once per
+    // package the app ships, at startup, or the first time a user adds a
+    // downloaded effect; AddPackagedEffect attaches an *instance* of an
+    // already-loaded package to a clip, which is what actually creates the
+    // clip's PropertyBag and (on the next graph rebuild) its RenderNodes.
+    // These are separate calls, not one, because loading is expensive
+    // (JSON parse) and cacheable while instantiation is cheap and per-clip.
+    bool LoadEffectPackage(const std::string& packageDir, std::string* error = nullptr);
+    EffectId AddPackagedEffect(TrackId track, ClipId clip, const std::string& packageId);
+
+    EffectRuntime& GetEffectRuntime() { return effectRuntime_; }
+
     void Undo();
     void Redo();
     bool CanUndo() const { return commandStack_.CanUndo(); }
@@ -99,6 +114,7 @@ public:
 private:
     std::unique_ptr<Project> project_;
     CommandStack commandStack_;
+    EffectRuntime effectRuntime_;
     std::unique_ptr<PlaybackEngine> playback_;
 
     std::atomic<bool> exporting_{false};

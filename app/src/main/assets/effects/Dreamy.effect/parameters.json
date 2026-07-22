@@ -1,0 +1,29 @@
+[
+    {
+        "name": "exposure",
+        "type": "float",
+        "default": 0.3,
+        "min": -2.0,
+        "max": 2.0,
+        "category": "Color",
+        "uiHint": "slider"
+    },
+    {
+        "name": "contrast",
+        "type": "float",
+        "default": -0.1,
+        "min": -1.0,
+        "max": 1.0,
+        "category": "Color",
+        "uiHint": "slider"
+    },
+    {
+        "name": "glowRadius",
+        "type": "float",
+        "default": 2.0,
+        "min": 0.0,
+        "max": 20.0,
+        "category": "Look",
+        "uiHint": "slider"
+    }
+]

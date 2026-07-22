@@ -3,10 +3,12 @@
 #include <android/log.h>
 
 #include "rendergraph/nodes/BrightnessNode.h"
+#include "rendergraph/nodes/ClipTransformNode.h"
 #include "rendergraph/nodes/ColorConvertNode.h"
 #include "rendergraph/nodes/CompositeNode.h"
 #include "rendergraph/nodes/DecoderSourceNode.h"
 #include "rendergraph/nodes/OutputNode.h"
+#include "rendergraph/nodes/PackagedEffectSlotNode.h"
 
 #define LOG_TAG "PlaybackEngine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -65,26 +67,66 @@ void PlaybackEngine::RebuildGraphIfNeeded() {
 
     graph_ = RenderGraph{};  // Phase 1: full rebuild on structural change, not incremental patching
 
-    std::vector<NodeHandle> perTrackOutputs;
+    // Composited incrementally, bottom-to-top (Timeline::Tracks() is
+    // already in that order -- see core/Timeline.h), rather than collecting
+    // every video track's output and blending all of them in one final
+    // N-input CompositeNode the way Phase 1 did. That collect-then-blend
+    // shape can't support Adjustment tracks, because an adjustment layer's
+    // effect stack needs to see the specific composite of *only the layers
+    // beneath it* -- not the fully-finished frame -- as its input. Tracking
+    // a running `compositeSoFar` handle and folding each track into it in
+    // order gives every Adjustment track exactly that, for free, using
+    // CompositeNode unchanged (each fold is just a 2-input composite, which
+    // is the N=2 case of what CompositeNode already handled).
+    NodeHandle compositeSoFar = kInvalidNode;
     for (auto& track : project_->GetTimeline().Tracks()) {
-        if (track->Type() != TrackType::Video) continue;
+        if (track->Type() == TrackType::Video) {
+            NodeHandle source = graph_.AddNode(std::make_unique<DecoderSourceNode>(project_, track->Id()));
+            NodeHandle colorConvert = graph_.AddNode(std::make_unique<ColorConvertNode>());
+            NodeHandle brightness = graph_.AddNode(std::make_unique<BrightnessNode>(project_, track->Id()));
+            // Packaged effects (Dreamy, Cyberpunk, ...) run before the
+            // clip's own transform, matching every professional NLE's
+            // convention that "effects" operate in the clip's native frame
+            // and "transform" places the (already-effected) result within
+            // the canvas.
+            NodeHandle packagedEffects =
+                graph_.AddNode(std::make_unique<PackagedEffectSlotNode>(project_, track->Id(), effectRuntime_));
+            NodeHandle transform = graph_.AddNode(std::make_unique<ClipTransformNode>(project_, track->Id()));
 
-        NodeHandle source = graph_.AddNode(std::make_unique<DecoderSourceNode>(project_, track->Id()));
-        NodeHandle colorConvert = graph_.AddNode(std::make_unique<ColorConvertNode>());
-        NodeHandle brightness = graph_.AddNode(std::make_unique<BrightnessNode>(project_, track->Id()));
+            graph_.Connect(source, colorConvert);
+            graph_.Connect(colorConvert, brightness);
+            graph_.Connect(brightness, packagedEffects);
+            graph_.Connect(packagedEffects, transform);
 
-        graph_.Connect(source, colorConvert);
-        graph_.Connect(colorConvert, brightness);
-        perTrackOutputs.push_back(brightness);
-    }
+            if (compositeSoFar == kInvalidNode) {
+                compositeSoFar = transform;
+            } else {
+                NodeHandle composite = graph_.AddNode(std::make_unique<CompositeNode>());
+                graph_.Connect(compositeSoFar, composite);
+                graph_.Connect(transform, composite);
+                compositeSoFar = composite;
+            }
+        } else if (track->Type() == TrackType::Adjustment) {
+            // Adjustment Layer Animation (spec): an adjustment track with
+            // nothing beneath it yet has nothing to adjust -- skip rather
+            // than adjusting a black/empty frame.
+            if (compositeSoFar == kInvalidNode) continue;
 
-    NodeHandle composite = graph_.AddNode(std::make_unique<CompositeNode>());
-    for (NodeHandle handle : perTrackOutputs) {
-        graph_.Connect(handle, composite);
+            NodeHandle brightness = graph_.AddNode(std::make_unique<BrightnessNode>(project_, track->Id()));
+            NodeHandle packagedEffects =
+                graph_.AddNode(std::make_unique<PackagedEffectSlotNode>(project_, track->Id(), effectRuntime_));
+            graph_.Connect(compositeSoFar, brightness);
+            graph_.Connect(brightness, packagedEffects);
+            compositeSoFar = packagedEffects;
+        }
+        // Audio/Sticker/Text tracks: not part of the video render graph yet
+        // -- see docs/ARCHITECTURE.md's "Not yet implemented" list.
     }
 
     NodeHandle output = graph_.AddNode(std::make_unique<PreviewOutputNode>(previewGlContext_.get()));
-    graph_.Connect(composite, output);
+    if (compositeSoFar != kInvalidNode) {
+        graph_.Connect(compositeSoFar, output);
+    }
     graph_.SetOutputNode(output);
 
     graph_.AttachAll(attachContext);

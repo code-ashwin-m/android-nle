@@ -1,0 +1,25 @@
+{
+    "nodes": [
+        {
+            "id": "color",
+            "type": "ColorNode",
+            "params": {
+                "exposure": {"ref": "exposure"},
+                "contrast": {"ref": "contrast"},
+                "saturation": -0.15
+            }
+        },
+        {
+            "id": "glow",
+            "type": "BlurNode",
+            "params": {
+                "radius": {"ref": "glowRadius"}
+            }
+        }
+    ],
+    "connections": [
+        {"from": "input", "to": "color"},
+        {"from": "color", "to": "glow"},
+        {"from": "glow", "to": "output"}
+    ]
+}

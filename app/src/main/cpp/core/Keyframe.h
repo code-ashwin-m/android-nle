@@ -26,7 +26,16 @@ namespace nle {
 enum class InterpolationType {
     Hold,    // step function: value snaps at the next keyframe
     Linear,
-    Bezier,  // cubic bezier through user-adjustable control handles
+    Bezier,     // cubic bezier through user-adjustable control handles
+    EaseIn,     // fixed-handle presets equivalent to a Bezier keyframe whose
+    EaseOut,    // handles are pinned to standard easing curves -- these exist
+    EaseInOut,  // so the Properties Panel can offer one-tap easing without
+                // the user ever touching a handle; they reuse CubicBezierEase
+                // below with fixed control points rather than duplicating
+                // interpolation math. Custom per-user curves remain possible
+                // later purely as new fixed-handle presets, or by exposing
+                // InterpolationType::Bezier with programmatically-set
+                // handles -- neither needs a new InterpolationType value.
 };
 
 // Bezier control handle, expressed as (time offset, value offset) from the
@@ -133,6 +142,17 @@ public:
                                                 0.66 + next.inHandle.timeOffset, next.inHandle.valueOffset, t);
                 return Lerp(prev.value, next.value, eased);
             }
+            // Standard fixed-handle presets (same curves as CSS/AE "Ease In" /
+            // "Ease Out" / "Ease In Out"). Expressed as calls into the same
+            // CubicBezierEase used by InterpolationType::Bezier above rather
+            // than separate math, so any future refinement to the easing
+            // shape only ever needs to change one function.
+            case InterpolationType::EaseIn:
+                return Lerp(prev.value, next.value, CubicBezierEase(0.42, 0.0, 1.0, 1.0, t));
+            case InterpolationType::EaseOut:
+                return Lerp(prev.value, next.value, CubicBezierEase(0.0, 0.0, 0.58, 1.0, t));
+            case InterpolationType::EaseInOut:
+                return Lerp(prev.value, next.value, CubicBezierEase(0.42, 0.0, 0.58, 1.0, t));
         }
         return prev.value;
     }

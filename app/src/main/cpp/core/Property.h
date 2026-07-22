@@ -19,8 +19,25 @@
 #include <string>
 
 #include "core/Keyframe.h"
+#include "core/MathTypes.h"
 
 namespace nle {
+
+// Optional, additive metadata for property-panel binding and future
+// constraint enforcement. Deliberately NOT required at construction --
+// most Property<T> instances (e.g. Brightness today) never set this and pay
+// nothing for it beyond one small struct's worth of memory. This is the
+// spec's "constraints" and part of "metadata" for Property<T>; "expressions
+// (future)" is intentionally left out of this struct -- see the note below
+// on why that's a separate, later addition rather than a field to guess the
+// shape of now.
+struct PropertyMetadata {
+    std::string category;  // e.g. "Transform", "Color" -- Properties Panel grouping/section
+    std::string uiHint;     // e.g. "slider", "angle", "color-wheel" -- widget selection
+    double minValue = 0.0;
+    double maxValue = 0.0;
+    bool hasRange = false;  // false = unconstrained; true = clamp/slider-bound in the UI
+};
 
 template <typename T>
 class Property {
@@ -28,7 +45,13 @@ public:
     Property(std::string name, T defaultValue)
         : name_(std::move(name)), staticValue_(defaultValue) {}
 
+    Property(std::string name, T defaultValue, PropertyMetadata metadata)
+        : name_(std::move(name)), staticValue_(defaultValue), metadata_(std::move(metadata)) {}
+
     const std::string& Name() const { return name_; }
+
+    const PropertyMetadata& Metadata() const { return metadata_; }
+    void SetMetadata(PropertyMetadata metadata) { metadata_ = std::move(metadata); }
 
     // Fast path: no keyframes, just return the static value. This is the
     // overwhelmingly common case (most properties on most clips are never
@@ -58,11 +81,19 @@ private:
     std::string name_;
     T staticValue_{};
     KeyframeCurve<T> curve_;
+    PropertyMetadata metadata_;
 };
 
-// Common concrete instantiation used throughout the effect system. Effects
-// like Brightness, Contrast, Opacity, Scale are all scalar doubles; Crop and
-// Position will use a Vec2 specialization added alongside those features.
+// Concrete instantiations. Every one of these shares the exact same
+// Property<T>/KeyframeCurve<T> machinery -- adding ScaleProperty (Vec2) or
+// TemperatureProperty (double) is not "a new kind of property," it's just
+// another alias, because Property<T> was never scalar-specific to begin
+// with. This is the proof that the spec's "no property-specific code" goal
+// is already met by Phase 1's design, extended to non-scalar types.
 using ScalarProperty = Property<double>;
+using Vec2Property = Property<Vec2>;
+using Vec3Property = Property<Vec3>;
+using ColorProperty = Property<Color>;
+using Matrix4Property = Property<Matrix4>;
 
 }  // namespace nle

@@ -29,6 +29,8 @@ add_library(nleengine SHARED
 
     core/Keyframe.h
     core/Property.h
+    core/PropertyBag.h
+    core/MathTypes.h
     core/MediaSource.h
     core/Clip.h
     core/Track.h
@@ -42,6 +44,21 @@ add_library(nleengine SHARED
     command/commands/SetBrightnessCommand.h
     command/commands/TimelineCommands.h
 
+    util/Json.h
+    util/Json.cpp
+
+    effects/EffectGraphDef.h
+    effects/EffectPackageLoader.h
+    effects/EffectPackageLoader.cpp
+    effects/EffectNodeRegistry.h
+    effects/EffectNodeRegistry.cpp
+    effects/EffectRuntime.h
+    effects/EffectRuntime.cpp
+    effects/nodes/ExternalInputNode.h
+    effects/nodes/ColorNode.h
+    effects/nodes/TransformNode.h
+    effects/nodes/BlurNode.h
+
     rendergraph/Frame.h
     rendergraph/RenderNode.h
     rendergraph/RenderGraph.h
@@ -49,6 +66,8 @@ add_library(nleengine SHARED
     rendergraph/nodes/DecoderSourceNode.cpp
     rendergraph/nodes/ColorConvertNode.h
     rendergraph/nodes/BrightnessNode.h
+    rendergraph/nodes/ClipTransformNode.h
+    rendergraph/nodes/PackagedEffectSlotNode.h
     rendergraph/nodes/CompositeNode.h
     rendergraph/nodes/OutputNode.h
 

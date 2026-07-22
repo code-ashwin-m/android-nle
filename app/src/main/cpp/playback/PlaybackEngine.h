@@ -22,6 +22,7 @@
 
 #include "core/PlaybackClock.h"
 #include "core/Project.h"
+#include "effects/EffectRuntime.h"
 #include "render/GLContext.h"
 #include "render/OpenGLRenderer.h"
 #include "render/TexturePool.h"
@@ -41,7 +42,7 @@ enum class PreviewQuality { Full, Half, Quarter };
 
 class PlaybackEngine {
 public:
-    explicit PlaybackEngine(Project* project) : project_(project) {}
+    PlaybackEngine(Project* project, EffectRuntime* effectRuntime) : project_(project), effectRuntime_(effectRuntime) {}
     ~PlaybackEngine();
 
     // Called once a preview Surface exists (i.e. the Compose UI's
@@ -62,12 +63,32 @@ public:
     PlaybackState State() const { return clock_.State(); }
     RenderStats Stats() const { return stats_; }
 
+    // Marks the shared RenderGraph stale so RebuildGraphIfNeeded rebuilds it
+    // from scratch on the render thread's next loop iteration, instead of
+    // reusing node instances that no longer match the timeline's current
+    // clip/effect structure.
+    //
+    // This didn't exist before Phase 2: RebuildGraphIfNeeded's dirty flag
+    // was previously cleared only once, in AttachPreviewSurface, which
+    // happened to be harmless while Brightness was the only effect (its
+    // per-track node already re-reads the active clip's property fresh
+    // every frame, so nothing about it goes stale). Packaged effects and
+    // per-clip transforms are not fully robust to that gap -- a clip added
+    // or an effect attached *after* the preview surface is already up would
+    // silently never appear -- so every structural EditorEngine entry point
+    // (AddClip, DeleteClip, SplitClip, TrimClipHead/Tail, AddTrack,
+    // AddEffect, AddPackagedEffect) now calls this. See
+    // docs/ARCHITECTURE.md, "Existing files modified" for the full list and
+    // reasoning.
+    void InvalidateGraph() { graphBuilt_.store(false, std::memory_order_release); }
+
 private:
     void RenderLoop();
     void RebuildGraphIfNeeded();
     double FrameDurationSeconds() const { return 1.0 / project_->Settings().fps; }
 
     Project* project_;
+    EffectRuntime* effectRuntime_;
     PlaybackClock clock_;
     double playbackRate_ = 1.0;
     std::atomic<PreviewQuality> previewQuality_{PreviewQuality::Full};
@@ -76,7 +97,7 @@ private:
     std::unique_ptr<OpenGLRenderer> previewRenderer_;
     std::unique_ptr<TexturePool> texturePool_;
     RenderGraph graph_;
-    bool graphBuilt_ = false;
+    std::atomic<bool> graphBuilt_{false};  // written from both the calling thread (InvalidateGraph) and the render thread (RebuildGraphIfNeeded)
 
     std::thread renderThread_;
     std::atomic<bool> running_{false};
