@@ -3,6 +3,8 @@
 #include <android/log.h>
 #include <fcntl.h>
 #include <media/NdkMediaFormat.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define LOG_TAG "Encoder"
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)

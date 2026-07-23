@@ -70,22 +70,24 @@ private:
 
     Track* TrackPtr() const;  // implemented in .cpp, looks up via project_->GetTimeline()
 
-    Decoder* DecoderForSource(MediaSourceId sourceId) {
-        auto it = decoders_.find(sourceId.value);
-        if (it != decoders_.end()) return it->second.decoder.get();
+    Decoder* DecoderForSource(MediaSourceId sourceId);
 
-        MediaSource* source = project_->FindMedia(sourceId);
-        if (!source) return nullptr;
+    // Decoder* DecoderForSource(MediaSourceId sourceId) {
+    //     auto it = decoders_.find(sourceId.value);
+    //     if (it != decoders_.end()) return it->second.decoder.get();
 
-        auto decoder = std::make_unique<Decoder>();
-        if (!decoder->Open(source->Uri())) return nullptr;
+    //     MediaSource* source = project_->FindMedia(sourceId);
+    //     if (!source) return nullptr;
 
-        if (!AttachSurfaceTexture(*decoder, sourceId)) return nullptr;
+    //     auto decoder = std::make_unique<Decoder>();
+    //     if (!decoder->Open(source->Uri())) return nullptr;
 
-        Decoder* ptr = decoder.get();
-        decoders_[sourceId.value].decoder = std::move(decoder);
-        return ptr;
-    }
+    //     if (!AttachSurfaceTexture(*decoder, sourceId)) return nullptr;
+
+    //     Decoder* ptr = decoder.get();
+    //     decoders_[sourceId.value].decoder = std::move(decoder);
+    //     return ptr;
+    // }
 
     bool AttachSurfaceTexture(Decoder& decoder, MediaSourceId sourceId) {
         JNIEnv* env = GetJniEnvForCurrentThread();
