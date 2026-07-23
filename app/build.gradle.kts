@@ -1,12 +1,11 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "com.nle.editor"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.nle.editor"
@@ -15,10 +14,10 @@ android {
         // which is API 28+. This is the one hard floor in the whole engine
         // -- see the header comment there before lowering this.
         minSdk = 28
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "0.1.0-phase1"
-
+        
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++20"
@@ -51,7 +50,7 @@ android {
         compose = true
     }
 
-    //composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -64,15 +63,31 @@ android {
 
 dependencies {
     //implementation(platform("androidx.compose:compose-bom:2024.09.00"))
-    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
-    implementation("androidx.compose.foundation:foundation")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.activity:activity-compose:1.9.2")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    // implementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    // implementation("androidx.compose.foundation:foundation")
+    // implementation("androidx.compose.ui:ui")
+    // implementation("androidx.compose.material3:material3")
+    // implementation("androidx.compose.material:material-icons-extended")
+    // implementation("androidx.activity:activity-compose:1.9.2")
+    // implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    // implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+    // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // org.json (used by EditorRepository to parse native snapshots) ships
     // with the Android platform SDK -- no dependency entry needed.
+
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.activity:activity-compose:1.9.0")
+
+    val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 }
