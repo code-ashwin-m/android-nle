@@ -29,7 +29,7 @@ bool GLContext::Initialize(void* nativeWindow, const GLContext* sharedWith) {
     // what will let a future Vulkan backend swap in without touching
     // callers of GLContext.
     const EGLint configAttribs[] = {
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT_KHR,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
