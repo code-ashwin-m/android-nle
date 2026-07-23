@@ -65,14 +65,14 @@ android {
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
-    implementation("androidx.compose.foundation:foundation")
+
+    implementation("androidx.compose.runtime:runtime")
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.foundation:foundation-layout")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
+
     implementation("androidx.activity:activity-compose:1.9.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-    // org.json (used by EditorRepository to parse native snapshots) ships
-    // with the Android platform SDK -- no dependency entry needed.
 }
