@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.nle.editor"
     compileSdk = 34
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "com.nle.editor"
@@ -18,18 +19,18 @@ android {
         versionCode = 1
         versionName = "0.1.0-phase1"
         
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-std=c++20"
-                arguments += "-DANDROID_STL=c++_shared"
-            }
-        }
-        ndk {
-            // arm64-v8a first since it's what every relevant test device
-            // and the vast majority of the target install base runs;
-            // x86_64 is kept for emulator development builds.
-            abiFilters += listOf("arm64-v8a", "x86_64")
-        }
+        // externalNativeBuild {
+        //     cmake {
+        //         cppFlags += "-std=c++20"
+        //         arguments += "-DANDROID_STL=c++_shared"
+        //     }
+        // }
+        // ndk {
+        //     // arm64-v8a first since it's what every relevant test device
+        //     // and the vast majority of the target install base runs;
+        //     // x86_64 is kept for emulator development builds.
+        //     abiFilters += listOf("arm64-v8a", "x86_64")
+        // }
     }
 
     externalNativeBuild {
