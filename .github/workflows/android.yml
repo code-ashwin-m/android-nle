@@ -31,10 +31,12 @@ jobs:
             "cmake;3.22.1" \
             "ndk;27.0.12077973"
 
-      - name: Make Gradle executable
+      - name: Make gradlew executable
+        working-directory: android-nle
         run: chmod +x gradlew
 
       - name: Build Debug APK
+        working-directory: android-nle
         run: ./gradlew assembleDebug
 
       - name: Upload APK
